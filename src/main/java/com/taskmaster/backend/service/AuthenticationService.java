@@ -18,17 +18,20 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final EmailService emailService; // Add this
 
-    // FIX: Manual Constructor
-    public AuthenticationService(UserRepository repository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager) {
+    // Update Constructor
+    public AuthenticationService(UserRepository repository, PasswordEncoder passwordEncoder, 
+                                 JwtService jwtService, AuthenticationManager authenticationManager,
+                                 EmailService emailService) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.emailService = emailService;
     }
 
     public AuthResponse register(RegisterRequest request) {
-        // FIX: No Builder, just setters/constructors
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
@@ -36,6 +39,10 @@ public class AuthenticationService {
         user.setRole(request.getRole() != null ? request.getRole() : Role.USER);
         
         repository.save(user);
+        
+        // Trigger Email (External Integration)
+        emailService.sendWelcomeEmail(user.getEmail(), user.getUsername());
+        
         var jwtToken = jwtService.generateToken(user);
         return new AuthResponse(jwtToken);
     }
