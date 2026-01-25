@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findByUserId(Long userId, Pageable pageable);
     
+    // New filtering method
     Page<Task> findByUserIdAndStatus(Long userId, TaskStatus status, Pageable pageable);
     
     Optional<Task> findByIdAndUserId(Long id, Long userId);

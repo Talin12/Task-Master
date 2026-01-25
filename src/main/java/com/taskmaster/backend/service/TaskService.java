@@ -37,7 +37,6 @@ public class TaskService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 
-    // Fixed: Added Cacheable and Filtering logic
     @Cacheable(value = "tasks", key = "#user.username + '-' + #status + '-' + #pageable.pageNumber")
     public Page<Task> getAllTasks(String status, Pageable pageable) {
         User user = getCurrentUser();
@@ -46,27 +45,12 @@ public class TaskService {
                 TaskStatus taskStatus = TaskStatus.valueOf(status.toUpperCase());
                 return taskRepository.findByUserIdAndStatus(user.getId(), taskStatus, pageable);
             } catch (IllegalArgumentException e) {
-                // Ignore invalid status and return all
+                // Ignore invalid status
             }
         }
         return taskRepository.findByUserId(user.getId(), pageable);
     }
 
-    public Task getTaskById(Long id) {
-        return taskRepository.findByIdAndUserId(id, getCurrentUser().getId())
-                .orElseThrow(() -> new RuntimeException("Task not found or access denied"));
-    }
-    
-    public Map<String, Long> getTaskAnalytics() {
-        List<Object[]> results = taskRepository.countTasksByStatus(getCurrentUser().getId());
-        Map<String, Long> stats = new HashMap<>();
-        for (TaskStatus status : TaskStatus.values()) stats.put(status.name(), 0L);
-        for (Object[] result : results) stats.put(((TaskStatus) result[0]).name(), (Long) result[1]);
-        stats.put("TOTAL_TASKS", stats.values().stream().mapToLong(Long::longValue).sum());
-        return stats;
-    }
-
-    // Fixed: Evict cache when creating tasks
     @CacheEvict(value = "tasks", allEntries = true)
     public Task createTask(TaskRequest request) {
         Task task = new Task();
@@ -84,6 +68,7 @@ public class TaskService {
         } else {
             task.setStatus(TaskStatus.TODO);
         }
+
         task.setUser(getCurrentUser());
         return taskRepository.save(task);
     }
@@ -91,21 +76,40 @@ public class TaskService {
     @Transactional
     @CacheEvict(value = "tasks", allEntries = true)
     public Task updateTask(Long id, TaskRequest request) {
-        Task task = getTaskById(id);
+        Task task = taskRepository.findByIdAndUserId(id, getCurrentUser().getId())
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+        
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setDueDate(request.getDueDate());
+        
         if (request.getStatus() != null) {
             try {
                 task.setStatus(TaskStatus.valueOf(request.getStatus().toUpperCase()));
-            } catch (IllegalArgumentException e) { }
+            } catch (IllegalArgumentException e) {}
         }
+        
         return taskRepository.save(task);
     }
 
     @CacheEvict(value = "tasks", allEntries = true)
     public void deleteTask(Long id) {
-        Task task = getTaskById(id);
+        Task task = taskRepository.findByIdAndUserId(id, getCurrentUser().getId())
+                .orElseThrow(() -> new RuntimeException("Task not found"));
         taskRepository.delete(task);
+    }
+
+    public Task getTaskById(Long id) {
+        return taskRepository.findByIdAndUserId(id, getCurrentUser().getId())
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+    }
+
+    public Map<String, Long> getTaskAnalytics() {
+        List<Object[]> results = taskRepository.countTasksByStatus(getCurrentUser().getId());
+        Map<String, Long> stats = new HashMap<>();
+        for (TaskStatus status : TaskStatus.values()) stats.put(status.name(), 0L);
+        for (Object[] result : results) stats.put(((TaskStatus) result[0]).name(), (Long) result[1]);
+        stats.put("TOTAL_TASKS", stats.values().stream().mapToLong(Long::longValue).sum());
+        return stats;
     }
 }
