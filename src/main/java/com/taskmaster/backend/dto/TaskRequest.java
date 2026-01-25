@@ -1,11 +1,16 @@
 package com.taskmaster.backend.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
 
 public class TaskRequest {
+    
+    @NotBlank(message = "Title is required")
     private String title;
+    
     private String description;
-    private String status; // We'll accept String and convert to Enum
+    
+    private String status;
     private LocalDateTime dueDate;
 
     public TaskRequest() {}

@@ -6,6 +6,8 @@ import com.taskmaster.backend.model.TaskStatus;
 import com.taskmaster.backend.model.User;
 import com.taskmaster.backend.repository.TaskRepository;
 import com.taskmaster.backend.repository.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,38 +37,37 @@ public class TaskService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 
-    public Page<Task> getAllTasks(Pageable pageable) {
-        return taskRepository.findByUserId(getCurrentUser().getId(), pageable);
+    // Fixed: Added Cacheable and Filtering logic
+    @Cacheable(value = "tasks", key = "#user.username + '-' + #status + '-' + #pageable.pageNumber")
+    public Page<Task> getAllTasks(String status, Pageable pageable) {
+        User user = getCurrentUser();
+        if (status != null && !status.isEmpty()) {
+            try {
+                TaskStatus taskStatus = TaskStatus.valueOf(status.toUpperCase());
+                return taskRepository.findByUserIdAndStatus(user.getId(), taskStatus, pageable);
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid status and return all
+            }
+        }
+        return taskRepository.findByUserId(user.getId(), pageable);
     }
 
     public Task getTaskById(Long id) {
         return taskRepository.findByIdAndUserId(id, getCurrentUser().getId())
                 .orElseThrow(() -> new RuntimeException("Task not found or access denied"));
     }
-
-    // New Analytics Method
+    
     public Map<String, Long> getTaskAnalytics() {
         List<Object[]> results = taskRepository.countTasksByStatus(getCurrentUser().getId());
         Map<String, Long> stats = new HashMap<>();
-        
-        // Initialize all with 0
-        for (TaskStatus status : TaskStatus.values()) {
-            stats.put(status.name(), 0L);
-        }
-        
-        // Fill with actual data
-        for (Object[] result : results) {
-            TaskStatus status = (TaskStatus) result[0];
-            Long count = (Long) result[1];
-            stats.put(status.name(), count);
-        }
-        
-        // Add total count
+        for (TaskStatus status : TaskStatus.values()) stats.put(status.name(), 0L);
+        for (Object[] result : results) stats.put(((TaskStatus) result[0]).name(), (Long) result[1]);
         stats.put("TOTAL_TASKS", stats.values().stream().mapToLong(Long::longValue).sum());
-        
         return stats;
     }
 
+    // Fixed: Evict cache when creating tasks
+    @CacheEvict(value = "tasks", allEntries = true)
     public Task createTask(TaskRequest request) {
         Task task = new Task();
         task.setTitle(request.getTitle());
@@ -83,30 +84,26 @@ public class TaskService {
         } else {
             task.setStatus(TaskStatus.TODO);
         }
-
         task.setUser(getCurrentUser());
         return taskRepository.save(task);
     }
 
     @Transactional
+    @CacheEvict(value = "tasks", allEntries = true)
     public Task updateTask(Long id, TaskRequest request) {
         Task task = getTaskById(id);
-        
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setDueDate(request.getDueDate());
-        
         if (request.getStatus() != null) {
             try {
                 task.setStatus(TaskStatus.valueOf(request.getStatus().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                // Keep old status if invalid
-            }
+            } catch (IllegalArgumentException e) { }
         }
-        
         return taskRepository.save(task);
     }
 
+    @CacheEvict(value = "tasks", allEntries = true)
     public void deleteTask(Long id) {
         Task task = getTaskById(id);
         taskRepository.delete(task);

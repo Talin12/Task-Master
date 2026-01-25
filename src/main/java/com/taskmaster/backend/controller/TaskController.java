@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -20,11 +21,11 @@ public class TaskController {
         this.taskService = taskService;
     }
 
-    // Supports: /api/tasks?page=0&size=10&sort=createdAt,desc
     @GetMapping
     public ResponseEntity<Page<Task>> getAllTasks(
+            @RequestParam(required = false) String status,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(taskService.getAllTasks(pageable));
+        return ResponseEntity.ok(taskService.getAllTasks(status, pageable));
     }
 
     @GetMapping("/{id}")
@@ -33,12 +34,12 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<Task> createTask(@RequestBody TaskRequest request) {
+    public ResponseEntity<Task> createTask(@RequestBody @Valid TaskRequest request) {
         return ResponseEntity.ok(taskService.createTask(request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Task> updateTask(@PathVariable Long id, @RequestBody TaskRequest request) {
+    public ResponseEntity<Task> updateTask(@PathVariable Long id, @RequestBody @Valid TaskRequest request) {
         return ResponseEntity.ok(taskService.updateTask(id, request));
     }
 
