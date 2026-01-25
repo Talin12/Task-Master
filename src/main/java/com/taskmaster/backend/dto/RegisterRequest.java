@@ -1,11 +1,22 @@
 package com.taskmaster.backend.dto;
 
 import com.taskmaster.backend.model.Role;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class RegisterRequest {
+    
+    @NotBlank(message = "Username is required")
     private String username;
+    
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
     private String email;
+    
+    @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
+    
     private Role role;
 
     public RegisterRequest() {}
