@@ -19,7 +19,6 @@ public class SecurityConfig {
 
     private final UserRepository userRepository;
 
-    // FIX: Manual Constructor Injection (Bypassing Lombok)
     public SecurityConfig(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
@@ -32,8 +31,8 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        // FIX: Using Constructor for UserDetailsService (based on your previous error log)
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService());
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService());
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
@@ -53,7 +52,8 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/").permitAll()
+                // FIX: Added "/swagger-ui.html" explicitly to allow the redirect
+                .requestMatchers("/api/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/").permitAll()
                 .anyRequest().authenticated()
             );
         return http.build();
