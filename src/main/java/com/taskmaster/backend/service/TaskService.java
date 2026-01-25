@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class TaskService {
@@ -41,6 +44,29 @@ public class TaskService {
                 .orElseThrow(() -> new RuntimeException("Task not found or access denied"));
     }
 
+    // New Analytics Method
+    public Map<String, Long> getTaskAnalytics() {
+        List<Object[]> results = taskRepository.countTasksByStatus(getCurrentUser().getId());
+        Map<String, Long> stats = new HashMap<>();
+        
+        // Initialize all with 0
+        for (TaskStatus status : TaskStatus.values()) {
+            stats.put(status.name(), 0L);
+        }
+        
+        // Fill with actual data
+        for (Object[] result : results) {
+            TaskStatus status = (TaskStatus) result[0];
+            Long count = (Long) result[1];
+            stats.put(status.name(), count);
+        }
+        
+        // Add total count
+        stats.put("TOTAL_TASKS", stats.values().stream().mapToLong(Long::longValue).sum());
+        
+        return stats;
+    }
+
     public Task createTask(TaskRequest request) {
         Task task = new Task();
         task.setTitle(request.getTitle());
@@ -64,7 +90,7 @@ public class TaskService {
 
     @Transactional
     public Task updateTask(Long id, TaskRequest request) {
-        Task task = getTaskById(id); // Checks ownership implicitly
+        Task task = getTaskById(id);
         
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
