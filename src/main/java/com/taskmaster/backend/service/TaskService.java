@@ -37,7 +37,7 @@ public class TaskService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 
-    @Cacheable(value = "tasks", key = "#user.username + '-' + #status + '-' + #pageable.pageNumber")
+    @Cacheable(value = "tasks", key = "T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + '-' + #status + '-' + #pageable.pageNumber")
     public Page<Task> getAllTasks(String status, Pageable pageable) {
         User user = getCurrentUser();
         if (status != null && !status.isEmpty()) {
